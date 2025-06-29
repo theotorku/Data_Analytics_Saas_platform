@@ -1,0 +1,447 @@
+#!/bin/bash
+# setup.sh - Complete project setup script
+
+set -e
+
+echo "🚀 Setting up Data Analytics SaaS Platform..."
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if required tools are installed
+check_requirements() {
+    print_status "Checking requirements..."
+    
+    command -v python3 >/dev/null 2>&1 || { print_error "Python 3 is required but not installed."; exit 1; }
+    command -v node >/dev/null 2>&1 || { print_error "Node.js is required but not installed."; exit 1; }
+    command -v npm >/dev/null 2>&1 || { print_error "npm is required but not installed."; exit 1; }
+    command -v git >/dev/null 2>&1 || { print_error "Git is required but not installed."; exit 1; }
+    
+    print_status "All requirements satisfied!"
+}
+
+# Create project directory structure
+create_structure() {
+    print_status "Creating project structure..."
+    
+    # Create main directories
+    mkdir -p saas-platform/{backend,frontend,docs}
+    mkdir -p saas-platform/backend/{app/{core,models,schemas,api/endpoints,services,utils},tests,alembic/versions,uploads,logs}
+    mkdir -p saas-platform/frontend/{public,src/{components/{auth,dashboard,upload,analytics,settings,layout,common},hooks,services,context,utils,styles}}
+    
+    print_status "Project structure created!"
+}
+
+# Setup backend
+setup_backend() {
+    print_status "Setting up backend..."
+    
+    cd saas-platform/backend
+    
+    # Create virtual environment
+    python3 -m venv venv
+    source venv/bin/activate || source venv/Scripts/activate  # Windows compatibility
+    
+    # Create requirements.txt
+    cat > requirements.txt << 'EOF'
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+sqlalchemy==2.0.23
+alembic==1.13.1
+psycopg2-binary==2.9.9
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+pydantic==2.5.2
+pydantic-settings==2.1.0
+email-validator==2.1.0
+openai==1.3.7
+stripe==7.8.0
+pandas==2.1.4
+openpyxl==3.1.2
+python-dotenv==1.0.0
+requests==2.31.0
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+redis==5.0.1
+aiosmtplib==3.0.1
+jinja2==3.1.2
+EOF
+    
+    # Install dependencies
+    pip install -r requirements.txt
+    
+    # Create .env file
+    cp ../.env.example .env || cat > .env << 'EOF'
+DATABASE_URL=postgresql://postgres:password@localhost:5432/saas_db
+SECRET_KEY=your-super-secret-key-here-change-this-in-production
+OPENAI_API_KEY=your-openai-api-key
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+REDIS_URL=redis://localhost:6379
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+EOF
+    
+    # Initialize Alembic
+    alembic init alembic
+    
+    print_status "Backend setup complete!"
+    cd ..
+}
+
+# Setup frontend
+setup_frontend() {
+    print_status "Setting up frontend..."
+    
+    cd saas-platform/frontend
+    
+    # Create package.json
+    cat > package.json << 'EOF'
+{
+  "name": "saas-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "axios": "^1.3.4",
+    "lucide-react": "^0.263.1",
+    "recharts": "^2.5.0",
+    "react-hook-form": "^7.43.9",
+    "react-query": "^3.39.3",
+    "react-hot-toast": "^2.4.0",
+    "clsx": "^1.2.1",
+    "react-dropzone": "^14.2.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite": "^4.3.2",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.23",
+    "eslint": "^8.38.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0"
+  }
+}
+EOF
+    
+    # Install dependencies
+    npm install
+    
+    # Initialize Tailwind CSS
+    npx tailwindcss init -p
+    
+    # Create .env file
+    cat > .env << 'EOF'
+VITE_API_BASE_URL=http://localhost:8000
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-publishable-key
+VITE_APP_NAME=Data Analytics SaaS
+EOF
+    
+    # Create Vite config
+    cat > vite.config.js << 'EOF'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 3000,
+    host: true
+  }
+})
+EOF
+    
+    # Create basic HTML template
+    mkdir -p public
+    cat > public/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Analytics SaaS</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+EOF
+    
+    print_status "Frontend setup complete!"
+    cd ..
+}
+
+# Create Docker configuration
+setup_docker() {
+    print_status "Setting up Docker configuration..."
+    
+    cd saas-platform
+    
+    # Create docker-compose.yml (already created in previous artifact)
+    # Create .dockerignore files
+    cat > backend/.dockerignore << 'EOF'
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+.venv
+venv/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+EOF
+    
+    cat > frontend/.dockerignore << 'EOF'
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+dist
+build
+coverage
+.nyc_output
+.git
+EOF
+    
+    print_status "Docker configuration created!"
+    cd ..
+}
+
+# Create development scripts
+create_scripts() {
+    print_status "Creating development scripts..."
+    
+    cd saas-platform
+    
+    # Create start script
+    cat > start-dev.sh << 'EOF'
+#!/bin/bash
+echo "Starting Data Analytics SaaS Platform in development mode..."
+
+# Start backend
+echo "Starting backend..."
+cd backend
+source venv/bin/activate || source venv/Scripts/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+BACKEND_PID=$!
+cd ..
+
+# Start frontend
+echo "Starting frontend..."
+cd frontend
+npm run dev &
+FRONTEND_PID=$!
+cd ..
+
+echo "Backend running on http://localhost:8000"
+echo "Frontend running on http://localhost:3000"
+echo "Press Ctrl+C to stop all services"
+
+# Function to cleanup processes
+cleanup() {
+    echo "Stopping services..."
+    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
+# Wait for processes
+wait
+EOF
+    
+    chmod +x start-dev.sh
+    
+    # Create database initialization script
+    cat > init-db.sh << 'EOF'
+#!/bin/bash
+echo "Initializing database..."
+
+cd backend
+source venv/bin/activate || source venv/Scripts/activate
+
+# Run migrations
+alembic upgrade head
+
+echo "Database initialized successfully!"
+cd ..
+EOF
+    
+    chmod +x init-db.sh
+    
+    # Create production build script
+    cat > build-prod.sh << 'EOF'
+#!/bin/bash
+echo "Building for production..."
+
+# Build frontend
+echo "Building frontend..."
+cd frontend
+npm run build
+cd ..
+
+# Build Docker images
+echo "Building Docker images..."
+docker-compose build
+
+echo "Production build complete!"
+EOF
+    
+    chmod +x build-prod.sh
+    
+    print_status "Development scripts created!"
+    cd ..
+}
+
+# Create documentation
+create_docs() {
+    print_status "Creating documentation..."
+    
+    cd saas-platform/docs
+    
+    # API Documentation
+    cat > api.md << 'EOF'
+# API Documentation
+
+## Authentication Endpoints
+
+### POST /api/v1/auth/login
+Login with username and password.
+
+### POST /api/v1/auth/register
+Register a new user account.
+
+### POST /api/v1/auth/logout
+Logout current user.
+
+## File Endpoints
+
+### POST /api/v1/files/upload
+Upload a new file for analysis.
+
+### GET /api/v1/files
+List all user files.
+
+### DELETE /api/v1/files/{id}
+Delete a specific file.
+
+## Analytics Endpoints
+
+### POST /api/v1/analytics/analyze
+Analyze an uploaded file.
+
+### GET /api/v1/analytics/results
+Get analysis results.
+EOF
+    
+    # Deployment Documentation
+    cat > deployment.md << 'EOF'
+# Deployment Guide
+
+## Local Development
+
+1. Clone the repository
+2. Run `./setup.sh`
+3. Configure environment variables
+4. Run `./start-dev.sh`
+
+## Production Deployment
+
+1. Configure production environment variables
+2. Run `./build-prod.sh`
+3. Deploy using `docker-compose up -d`
+
+## Environment Variables
+
+See `.env.example` files for required configuration.
+EOF
+    
+    print_status "Documentation created!"
+    cd ../..
+}
+
+# Main execution
+main() {
+    print_status "Starting setup process..."
+    
+    check_requirements
+    create_structure
+    setup_backend
+    setup_frontend
+    setup_docker
+    create_scripts
+    create_docs
+    
+    print_status "Setup complete! 🎉"
+    echo ""
+    echo -e "${BLUE}Next steps:${NC}"
+    echo "1. cd saas-platform"
+    echo "2. Configure your environment variables in .env files"
+    echo "3. Set up your database (PostgreSQL recommended)"
+    echo "4. Run ./init-db.sh to initialize the database"
+    echo "5. Run ./start-dev.sh to start the development servers"
+    echo ""
+    echo -e "${BLUE}URLs:${NC}"
+    echo "• Frontend: http://localhost:3000"
+    echo "• Backend API: http://localhost:8000"
+    echo "• API Docs: http://localhost:8000/docs"
+}
+
+# Run main function
+main "$@"
