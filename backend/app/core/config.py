@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     ALLOWED_HOSTS: List[str] = ["*"]
 
+    # Frontend URL
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
     # External APIs
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     STRIPE_SECRET_KEY: Optional[str] = os.getenv("STRIPE_SECRET_KEY")
